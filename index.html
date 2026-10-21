@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cursor follow</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #e10600;
+      overflow: hidden;
+    }
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: #e10600;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .brand {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(160px, 22vw) minmax(180px, 260px);
+      align-items: center;
+      padding: 0 56px;
+      box-sizing: border-box;
+      color: #fff;
+      font-family: Inter, system-ui, sans-serif;
+      pointer-events: none;
+    }
+    .brand-left, .brand-right {
+      min-width: 0;
+    }
+    .brand-right {
+      grid-column: 3;
+    }
+    .eyebrow {
+      margin: 0 0 16px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(40px, 5.4vw, 78px);
+      font-weight: 800;
+      letter-spacing: -0.045em;
+      line-height: 0.9;
+      text-transform: uppercase;
+    }
+    .brand-right p {
+      margin: 0 0 22px;
+      max-width: none;
+      font-size: clamp(15px, 1.35vw, 18px);
+      line-height: 1.45;
+      font-weight: 500;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 42px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: #fff;
+      color: #1a1a1a;
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <img id="frame" alt="" src="frames/f001.jpg" draggable="false" />
+  <div class="brand">
+    <div class="brand-left">
+      <p class="eyebrow">Hola, I'm Abrish</p>
+      <h1>A hello that follows you.</h1>
+    </div>
+    <div class="brand-right">
+      <p>Move your cursor anywhere on the page. I'll turn, look over, and keep you company while you're here.</p>
+      <span class="pill">Say hola</span>
+    </div>
+  </div>
+  <script>
+    const frame = document.querySelector("#frame")
+    const frameCount = 192
+    const fps = 24
+    const smoothing = 0.28
+    let target = 0.04
+    let current = 0.04
+    let lastNeutral = 0.04
+    let shown = 0
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value))
+    }
+
+    function ease(amount) {
+      const t = clamp(amount, 0, 1)
+      return t * t * (3 - 2 * t)
+    }
+
+    function fileForFrame(index) {
+      return "frames/f" + String(index + 1).padStart(3, "0") + ".jpg"
+    }
+
+    function poseFromCursor(nx, ny) {
+      const dead = 0.08
+      if (Math.hypot(nx, ny) < dead) return lastNeutral
+      const horizontal = Math.abs(nx) >= Math.abs(ny)
+      const span = horizontal ? Math.abs(nx) : Math.abs(ny)
+      const amount = ease((span - dead) / (1 - dead))
+      if (horizontal && nx < 0) {
+        lastNeutral = 2.9
+        return 2.9 + (1.7 - 2.9) * amount
+      }
+      if (horizontal) {
+        lastNeutral = 2.9
+        return 2.9 + (3.85 - 2.9) * amount
+      }
+      if (ny < 0) {
+        lastNeutral = 6.45
+        return 6.45 + (5.55 - 6.45) * amount
+      }
+      lastNeutral = 6.45
+      return 6.45 + (7.75 - 6.45) * amount
+    }
+
+    function neutralFor(time) {
+      if (time < 4.7) return 2.9
+      return 6.45
+    }
+
+    function onPointer(event) {
+      const nx = (event.clientX / window.innerWidth) * 2 - 1
+      const ny = (event.clientY / window.innerHeight) * 2 - 1
+      target = poseFromCursor(nx, ny)
+    }
+
+    window.addEventListener("pointermove", onPointer, { passive: true })
+    window.addEventListener("mousemove", onPointer, { passive: true })
+
+    for (let index = 0; index < frameCount; index++) {
+      const image = new Image()
+      image.src = fileForFrame(index)
+    }
+
+    function show(time) {
+      const index = clamp(Math.round(time * fps), 0, frameCount - 1)
+      if (index === shown) return
+      shown = index
+      frame.src = fileForFrame(index)
+    }
+
+    function tick() {
+      const goal = clamp(target, 0, (frameCount - 1) / fps)
+      if (Math.abs(goal - current) > 2.6) current = neutralFor(goal)
+      current += (goal - current) * smoothing
+      show(current)
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  </script>
+</body>
+</html>
